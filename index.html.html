@@ -291,7 +291,7 @@ async function doSignup(){const fn=gv('sfn'),ln=gv('sln'),em=gv('sem'),pw=gv('sp
 async function doLogout(){await sb.auth.signOut();toast('Déconnecté 👋');}
 async function loadProf(){if(!U)return;let fn=U.user_metadata?.prenom||'',ln=U.user_metadata?.nom||'';if(!fn){try{const{data}=await sb.from('profiles').select('*').eq('id',U.id).maybeSingle();if(data){fn=data.prenom||'';ln=data.nom||'';}}catch(e){}}if(!fn)fn=U.email.split('@')[0];g('un').textContent=fn+' '+ln;g('av').textContent=(fn[0]||'?')+(ln[0]||'').toUpperCase();}
 
-function nav(page,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));const p=g('page-'+page);if(p)p.classList.add('on');if(el)el.classList.add('active');({seances:rSea,joueurs:rJou,sante:rSan,calendrier:rCal,stats:rStat,programmes:rProg,comms:rComms,params:rParams,dashboard:loadDash,presences:rPres,compo:rCompo})[page]?.();}
+function nav(page,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));const p=g('page-'+page);if(p)p.classList.add('on');if(el)el.classList.add('active');({seances:rSea,joueurs:rJou,sante:rSan,calendrier:rCal,stats:rStat,programmes:rProg,comms:rComms,params:rParams,dashboard:loadDash,presences:rPres,compo:rCompo})[page]?.();if(window.innerWidth<=768) closeSidebar();}
 
 async function loadDash(){if(!U)return;let sea=[],jou=[],bl=[];try{const[sr,jr,br]=await Promise.all([sb.from('seances').select('*').eq('coach_id',U.id).order('date',{ascending:true}),sb.from('joueurs').select('*').eq('coach_id',U.id),sb.from('blessures').select('*').eq('coach_id',U.id).eq('status','active')]);sea=sr.data||[];jou=jr.data||[];bl=br.data||[];}catch(e){}
 let pm='—';try{const{data:pr}=await sb.from('presences').select('present').eq('coach_id',U.id);if(pr&&pr.length){pm=Math.round((pr.filter(p=>p.present).length/pr.length)*100)+'%';}}catch(e){}
@@ -398,11 +398,6 @@ function closeSidebar(){
   document.getElementById('overlay').classList.remove('on');
 }
 // Close sidebar after nav on mobile
-const _origNav = nav;
-function nav(page,el){
-  _origNav(page,el);
-  if(window.innerWidth<=768) closeSidebar();
-}
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.mbg').forEach(m=>{if(m.style.display!=='none')m.style.display='none';});});
 </script>
