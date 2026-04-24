@@ -207,7 +207,7 @@ button,input,select,textarea{font-family:var(--font-b)}
       <div class="ct" id="eqc"></div>
     </div>
     <div class="page" id="page-equipe-detail">
-      <div class="tb"><div><div class="pt" id="eq-detail-title">Équipe</div><div class="ps" id="eq-detail-sub"></div></div><div class="tbr"><button class="btn bg bsm" onclick="nav('equipes',document.querySelector('[onclick*=equipes]'))">← Retour</button><button class="btn bb bsm" onclick="pdfExport()">📄 PDF</button></div></div>
+      <div class="tb"><div><div class="pt" id="eq-detail-title">Équipe</div><div class="ps" id="eq-detail-sub"></div></div><div class="tbr"><button class="btn bg bsm" onclick="nav('equipes',document.querySelector('[onclick*=equipes]'))">← Retour</button><button class="btn bd bsm" id="btn-delete-equipe" onclick="confirmDeleteEquipe()">🗑️ Supprimer l'équipe</button><button class="btn bb bsm" onclick="pdfExport()">📄 PDF</button></div></div>
       <div class="ct" id="eq-detail-c"></div>
     </div>
     <div class="page" id="page-joueurs">
@@ -279,6 +279,28 @@ button,input,select,textarea{font-family:var(--font-b)}
       <div class="fg"><label class="fl">Email</label><input class="fi" id="ej-em" placeholder="joueur@email.com"></div>
     </div>
     <div class="mf"><button class="btn bg" onclick="cM('mjedit')">Annuler</button><button class="btn bp" onclick="saveEditJoueur()">✓ Sauvegarder</button></div>
+  </div>
+</div>
+
+<div class="mbg" id="m-confirm-delete" style="display:none" onclick="bgC(event,'m-confirm-delete')">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><div class="mht">⚠️ Confirmer la suppression</div><button class="mx" onclick="cM('m-confirm-delete')">✕</button></div>
+    <div class="mb">
+      <div style="text-align:center;padding:10px 0">
+        <div style="font-size:40px;margin-bottom:14px">🗑️</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">Supprimer <span id="confirm-equipe-nom" style="color:var(--red)"></span> ?</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6">Cette action supprimera définitivement :<br>
+          <strong style="color:var(--text)">tous les joueurs</strong> de cette équipe<br>
+          <strong style="color:var(--text)">toutes les séances</strong> de cette équipe<br>
+          <strong style="color:var(--text)">toutes les présences</strong> associées<br><br>
+          <span style="color:var(--red);font-weight:600">Cette action est irréversible.</span>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bg" onclick="cM('m-confirm-delete')">Annuler</button>
+      <button class="btn bd" onclick="executeDeleteEquipe()" style="background:var(--red);color:#fff;border-color:var(--red)">🗑️ Oui, supprimer définitivement</button>
+    </div>
   </div>
 </div>
 <div id="toast"><span id="tic" style="font-size:16px;flex-shrink:0"></span><span id="ttx"></span></div>
@@ -485,6 +507,7 @@ async function openEquipeDetail(eq){
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   g('page-equipe-detail').classList.add('on');
   g('eq-detail-title').textContent=eq.nom;
+  g('btn-delete-equipe').dataset.nom=eq.nom;
   g('eq-detail-sub').textContent=(IC[eq.sport]||'')+ ' '+eq.joueurs.length+' joueurs · '+eq.seances.length+' séances';
   const c=g('eq-detail-c');c.innerHTML='<div class="spin"></div>';
 
@@ -617,6 +640,57 @@ async function saveEditJoueur(){
   toast(fn+' '+ln+' mis a jour ✅');
   openProfil(curJId);
   rJou();
+}
+
+function confirmDeleteEquipe(){
+  const btn=g('btn-delete-equipe');
+  const nom=btn?btn.dataset.nom:'';
+  if(!nom){toast('Erreur equipe',true);return;}
+  const span=g('confirm-equipe-nom');
+  if(span)span.textContent='"'+nom+'"';
+  oM('m-confirm-delete');
+}
+
+async function executeDeleteEquipe(){
+  const btn=g('btn-delete-equipe');
+  const nom=btn?btn.dataset.nom:'';
+  if(!nom){toast('Erreur equipe',true);return;}
+  cM('m-confirm-delete');
+  const loadingToast=g('toast');
+  toast('Suppression en cours...','⏳');
+
+  try {
+    // Get all joueurs of this equipe
+    const{data:joueurs}=await sb.from('joueurs').select('id').eq('coach_id',U.id).eq('equipe',nom);
+    const joueurIds=(joueurs||[]).map(j=>String(j.id));
+
+    // Delete presences for these joueurs
+    if(joueurIds.length){
+      await sb.from('presences').delete().eq('coach_id',U.id).in('joueur_id',joueurIds);
+      await sb.from('notes_joueur').delete().eq('coach_id',U.id).in('joueur_id',joueurIds);
+    }
+
+    // Delete joueurs
+    await sb.from('joueurs').delete().eq('coach_id',U.id).eq('equipe',nom);
+
+    // Get seances of this equipe
+    const{data:seances}=await sb.from('seances').select('id').eq('coach_id',U.id).eq('equipe',nom);
+    const seanceIds=(seances||[]).map(s=>String(s.id));
+
+    // Delete presences for these seances
+    if(seanceIds.length){
+      await sb.from('presences').delete().eq('coach_id',U.id).in('seance_id',seanceIds);
+    }
+
+    // Delete seances
+    await sb.from('seances').delete().eq('coach_id',U.id).eq('equipe',nom);
+
+    toast('Equipe "'+nom+'" supprimee avec succes');
+    nav('equipes',qni('equipes'));
+  } catch(e){
+    toast('Erreur lors de la suppression : '+e.message,true);
+    console.error(e);
+  }
 }
 
 async function saveNote(){if(!curNJId){toast('Erreur joueur - rechargez la fiche',true);return;}const note=gv('ntx');if(!note){toast('Note vide ⚠️',true);return;}const nid=curNJId;const{error}=await sb.from('notes_joueur').insert({coach_id:U.id,joueur_id:String(nid),note});if(error){toast('Erreur : '+error.message,true);console.error(error);return;}cM('mno');toast('Note enregistrée 📝');g('ntx').value='';openProfil(nid);}
