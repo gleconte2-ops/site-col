@@ -215,7 +215,7 @@ button,input,select,textarea{font-family:var(--font-b)}
       <div class="ct"><div class="tabs"><button class="tab active" onclick="tabJ(this,'all')">Tous</button><button class="tab" onclick="tabJ(this,'football')">⚽ Football</button><button class="tab" onclick="tabJ(this,'boxe')">🥊 Boxe</button></div><div class="card"><div class="cb" id="jl"></div></div></div>
     </div>
     <div class="page" id="page-profil">
-      <div class="tb"><div><div class="pt">Fiche joueur</div><div class="ps" id="pnom">...</div></div><div class="tbr"><button class="btn bg bsm" onclick="nav('joueurs',qni('joueurs'))">← Retour</button><button class="btn bb bsm" onclick="pdfExport()">📄 PDF</button></div></div>
+      <div class="tb"><div><div class="pt">Fiche joueur</div><div class="ps" id="pnom">...</div></div><div class="tbr"><button class="btn bg bsm" onclick="nav('joueurs',qni('joueurs'))">← Retour</button><button class="btn bg bsm" onclick="openEditJoueur()">✏️ Modifier</button><button class="btn bb bsm" onclick="pdfExport()">📄 PDF</button></div></div>
       <div class="ct" id="pc"></div>
     </div>
     <div class="page" id="page-sante">
@@ -267,6 +267,20 @@ button,input,select,textarea{font-family:var(--font-b)}
 
 <div class="mbg" id="medit" style="display:none" onclick="bgC(event,'medit')"><div class="modal"><div class="mh"><div class="mht">✏️ Modifier la séance</div><button class="mx" onclick="cM('medit')">✕</button></div><div class="mb"><div class="frow"><div class="fg"><label class="fl">Sport</label><select class="fi" id="ess"><option value="football">⚽ Football</option><option value="boxe">🥊 Boxe</option></select></div><div class="fg"><label class="fl">Équipe</label><input class="fi" id="ese" placeholder="U17 Amiens"></div></div><div class="fg"><label class="fl">Nom de la séance</label><input class="fi" id="esn" placeholder="Nom..."></div><div class="frow"><div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="esd"></div><div class="fg"><label class="fl">Heure</label><input type="time" class="fi" id="esh"></div></div><div class="frow"><div class="fg"><label class="fl">Durée</label><select class="fi" id="esdu"><option value="60">60 min</option><option value="75">75 min</option><option value="90">90 min</option><option value="120">120 min</option></select></div><div class="fg"><label class="fl">Lieu</label><input class="fi" id="esl" placeholder="Terrain principal"></div></div><div class="fg"><label class="fl">Objectifs</label><textarea class="fi" id="eso" placeholder="Objectifs..."></textarea></div></div><div class="mf"><button class="btn bg" onclick="cM('medit')">Annuler</button><button class="btn bp" onclick="updateSea()">✓ Enregistrer</button></div></div></div>
 
+
+<div class="mbg" id="mjedit" style="display:none" onclick="bgC(event,'mjedit')">
+  <div class="modal">
+    <div class="mh"><div class="mht">✏️ Modifier le joueur</div><button class="mx" onclick="cM('mjedit')">✕</button></div>
+    <div class="mb">
+      <div class="frow"><div class="fg"><label class="fl">Prénom</label><input class="fi" id="ej-fn" placeholder="Lucas"></div><div class="fg"><label class="fl">Nom</label><input class="fi" id="ej-ln" placeholder="Bernard"></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Sport</label><select class="fi" id="ej-sp"><option value="football">⚽ Football</option><option value="boxe">🥊 Boxe</option></select></div><div class="fg"><label class="fl">Poste</label><input class="fi" id="ej-po" placeholder="Milieu offensif"></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Âge</label><input type="number" class="fi" id="ej-ag" placeholder="17"></div><div class="fg"><label class="fl">N° Licence</label><input class="fi" id="ej-li" placeholder="FFF-0000"></div></div>
+      <div class="fg"><label class="fl">Équipe</label><input class="fi" id="ej-eq" placeholder="U17 Amiens"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="ej-em" placeholder="joueur@email.com"></div>
+    </div>
+    <div class="mf"><button class="btn bg" onclick="cM('mjedit')">Annuler</button><button class="btn bp" onclick="saveEditJoueur()">✓ Sauvegarder</button></div>
+  </div>
+</div>
 <div id="toast"><span id="tic" style="font-size:16px;flex-shrink:0"></span><span id="ttx"></span></div>
 <script>
 const SB_URL='https://amtycrebktgyaeoiiiri.supabase.co';
@@ -580,7 +594,7 @@ function openEditJoueur(){
     g('ej-li').value=j.licence||'';
     g('ej-eq').value=j.equipe||'';
     g('ej-em').value=j.email||'';
-    oM('medit');
+    oM('mjedit');
   });
 }
 
@@ -616,7 +630,7 @@ function editSeance(s){
   const fields=[['es-nom',s.nom],['es-equipe',s.equipe||''],['es-date',s.date||''],['es-heure',(s.heure||'').slice(0,5)],['es-lieu',s.lieu||''],['es-obj',s.objectifs||'']];
   fields.forEach(([id,val])=>{const el=g(id);if(el)el.value=val;});
   const du=g('es-duree');if(du)du.value=String(s.duree||90);
-  oM('medit');
+  oM('mjedit');
 }
 async function updateSeance(){
   if(!curEditSeaId){toast('Erreur séance',true);return;}
@@ -662,7 +676,7 @@ function editSeance(s){
   g('esdu').value=s.duree||90;
   g('esl').value=s.lieu||'';
   g('eso').value=s.objectifs||'';
-  oM('medit');
+  oM('mjedit');
 }
 async function updateSea(){
   if(!curEditId){toast('Erreur ID séance',true);return;}
