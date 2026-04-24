@@ -173,6 +173,7 @@ button,input,select,textarea{font-family:var(--font-b)}
       <div class="ni" onclick="nav('compo',this)"><span class="nic">⚽</span> Composition</div>
       <div class="ni" onclick="nav('programmes',this)"><span class="nic">📋</span> Programmes</div>
       <div class="ssec">Effectif</div>
+      <div class="ni" onclick="nav('equipes',this)"><span class="nic">🏟️</span> Équipes</div>
       <div class="ni" onclick="nav('joueurs',this)"><span class="nic">👥</span> Joueurs</div>
       <div class="ni" onclick="nav('sante',this)"><span class="nic">🏥</span> Santé <span class="nib" id="badge-b">0</span></div>
       <div class="ssec">Club</div>
@@ -200,6 +201,14 @@ button,input,select,textarea{font-family:var(--font-b)}
     <div class="page" id="page-presences">
       <div class="tb"><div><div class="pt">Présences</div><div class="ps">Clique sur une séance pour prendre les présences</div></div><div class="tbr"><button class="btn bb bsm" onclick="pdfExport()">📄 Export PDF</button></div></div>
       <div class="ct"><div class="g2b"><div class="card"><div class="ch"><div class="cht">Séances</div></div><div class="cb" id="psl"></div></div><div class="card"><div class="ch"><div class="cht" id="ptit">Sélectionne une séance</div></div><div class="cb" id="pd"><div class="empty"><div class="ei">👆</div><div style="font-size:13px">Clique sur une séance à gauche</div></div></div></div></div></div>
+    </div>
+    <div class="page" id="page-equipes">
+      <div class="tb"><div><div class="pt">Équipes</div><div class="ps" id="eq-sub">Vue par equipe</div></div><div class="tbr"><button class="btn bp bsm" onclick="oM('mj')">+ Joueur</button></div></div>
+      <div class="ct" id="eqc"></div>
+    </div>
+    <div class="page" id="page-equipe-detail">
+      <div class="tb"><div><div class="pt" id="eq-detail-title">Équipe</div><div class="ps" id="eq-detail-sub"></div></div><div class="tbr"><button class="btn bg bsm" onclick="nav('equipes',document.querySelector('[onclick*=equipes]'))">← Retour</button><button class="btn bb bsm" onclick="pdfExport()">📄 PDF</button></div></div>
+      <div class="ct" id="eq-detail-c"></div>
     </div>
     <div class="page" id="page-joueurs">
       <div class="tb"><div><div class="pt">Joueurs & Athlètes</div><div class="ps" id="jsub">...</div></div><div class="tbr"><input class="fi" style="width:190px;padding:7px 11px;font-size:13px" placeholder="🔍 Rechercher..." oninput="searchJ(this.value)"><button class="btn bp bsm" onclick="oM('mj')">+ Ajouter</button></div></div>
@@ -301,7 +310,7 @@ async function doSignup(){const fn=gv('sfn'),ln=gv('sln'),em=gv('sem'),pw=gv('sp
 async function doLogout(){await sb.auth.signOut();toast('Déconnecté 👋');}
 async function loadProf(){if(!U)return;let fn=U.user_metadata?.prenom||'',ln=U.user_metadata?.nom||'';if(!fn){try{const{data}=await sb.from('profiles').select('*').eq('id',U.id).maybeSingle();if(data){fn=data.prenom||'';ln=data.nom||'';}}catch(e){}}if(!fn)fn=U.email.split('@')[0];g('un').textContent=fn+' '+ln;g('av').textContent=(fn[0]||'?')+(ln[0]||'').toUpperCase();}
 
-function nav(page,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));const p=g('page-'+page);if(p)p.classList.add('on');if(el)el.classList.add('active');({seances:rSea,joueurs:rJou,sante:rSan,calendrier:rCal,stats:rStat,programmes:rProg,comms:rComms,params:rParams,dashboard:loadDash,presences:rPres,compo:rCompo})[page]?.();if(window.innerWidth<=768)closeSidebar();}
+function nav(page,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));const p=g('page-'+page);if(p)p.classList.add('on');if(el)el.classList.add('active');({seances:rSea,joueurs:rJou,sante:rSan,calendrier:rCal,stats:rStat,programmes:rProg,comms:rComms,params:rParams,dashboard:loadDash,presences:rPres,compo:rCompo,equipes:rEquipes})[page]?.();if(window.innerWidth<=768)closeSidebar();}
 
 async function loadDash(){if(!U)return;let sea=[],jou=[],bl=[];try{const[sr,jr,br]=await Promise.all([sb.from('seances').select('*').eq('coach_id',U.id).order('date',{ascending:true}),sb.from('joueurs').select('*').eq('coach_id',U.id),sb.from('blessures').select('*').eq('coach_id',U.id).eq('status','active')]);sea=sr.data||[];jou=jr.data||[];bl=br.data||[];}catch(e){}
 let pm='—';try{const{data:pr}=await sb.from('presences').select('present').eq('coach_id',U.id);if(pr&&pr.length){pm=Math.round((pr.filter(p=>p.present).length/pr.length)*100)+'%';}}catch(e){}
@@ -410,6 +419,153 @@ function rParams(){const fn=U?.user_metadata?.prenom||'',ln=U?.user_metadata?.no
 async function saveSea(){const nom=gv('nsn');if(!nom){toast('Nom requis ⚠️',true);return;}const row={coach_id:U.id,sport:gv('nss'),nom,equipe:gv('nse'),date:gv('nsd'),heure:gv('nsh'),duree:parseInt(gv('nsdu'))||90,lieu:gv('nsl'),objectifs:gv('nso')};const{error}=await sb.from('seances').insert(row);if(error){toast('Erreur : '+error.message,true);return;}cM('ms');toast('Séance créée : "'+nom+'" '+(IC[row.sport]||''));['nsn','nse','nsl','nso'].forEach(id=>{const el=g(id);if(el)el.value='';});rSea();loadDash();}
 async function saveJou(){const fn=gv('jfn'),ln=gv('jln');if(!fn||!ln){toast('Prénom et nom requis ⚠️',true);return;}const row={coach_id:U.id,prenom:fn,nom:ln,sport:gv('jsp'),poste:gv('jpo'),age:parseInt(gv('jag'))||18,licence:gv('jli'),equipe:gv('jeq'),email:gv('jem')};const{error}=await sb.from('joueurs').insert(row);if(error){toast('Erreur : '+error.message,true);return;}cM('mj');toast(fn+' '+ln+' ajouté 👤');['jfn','jln','jpo','jag','jli','jeq','jem'].forEach(id=>{const el=g(id);if(el)el.value='';});rJou();loadDash();}
 async function saveBl(){const jou=gv('bnj');if(!jou){toast('Nom requis ⚠️',true);return;}const row={coach_id:U.id,nom_joueur:jou,sport:gv('bsp'),type:gv('bty'),zone:gv('bzo'),retour:gv('bre'),notes:gv('bno'),status:'active'};const{error}=await sb.from('blessures').insert(row);if(error){toast('Erreur : '+error.message,true);return;}cM('mb');toast('Blessure signalée 🏥');g('bnj').value='';g('bno').value='';rSan();}
+async function rEquipes(){
+  if(!U)return;
+  const[jr,sr]=await Promise.all([
+    sb.from('joueurs').select('*').eq('coach_id',U.id),
+    sb.from('seances').select('*').eq('coach_id',U.id)
+  ]);
+  const joueurs=jr.data||[];
+  const seances=sr.data||[];
+  // Group by equipe
+  const equipes={};
+  joueurs.forEach(j=>{
+    const k=j.equipe||'Sans equipe';
+    if(!equipes[k])equipes[k]={nom:k,sport:j.sport,joueurs:[],seances:[]};
+    equipes[k].joueurs.push(j);
+  });
+  seances.forEach(s=>{
+    const k=s.equipe||'Sans equipe';
+    if(!equipes[k])equipes[k]={nom:k,sport:s.sport,joueurs:[],seances:[]};
+    equipes[k].seances.push(s);
+  });
+  const list=Object.values(equipes).sort((a,b)=>a.nom.localeCompare(b.nom));
+  g('eq-sub').textContent=list.length+' equipe'+(list.length>1?'s':'');
+  const c=g('eqc');c.innerHTML='';
+  if(!list.length){c.innerHTML='<div class="empty"><div class="ei">🏟️</div><div style="font-size:13px">Aucune equipe - ajoutez des joueurs avec un nom d equipe</div></div>';return;}
+  const grid=mk('div');grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:14px';
+  list.forEach(eq=>{
+    const card=mk('div','card');
+    card.style.cursor='pointer';
+    const col=eq.sport==='football'?'--green':eq.sport==='boxe'?'--blue':'--muted';
+    card.innerHTML='<div style="padding:18px;border-bottom:1px solid var(--border)">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
+      +'<div style="width:44px;height:44px;border-radius:10px;background:var('+col+'-bg);display:flex;align-items:center;justify-content:center;font-size:22px">'+(IC[eq.sport]||'🏅')+'</div>'
+      +'<div><div style="font-family:var(--font-d);font-size:18px;font-weight:800">'+eq.nom+'</div>'
+      +'<span class="tag '+(eq.sport||'neutral')+'">'+(eq.sport||'—').toUpperCase()+'</span>'
+      +'</div></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--font-d);font-size:24px;font-weight:900;color:var('+col+')">'+eq.joueurs.length+'</div><div style="font-size:11px;color:var(--muted)">joueurs</div></div>'
+      +'<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--font-d);font-size:24px;font-weight:900;color:var('+col+')">'+eq.seances.length+'</div><div style="font-size:11px;color:var(--muted)">séances</div></div>'
+      +'</div></div>'
+      +'<div style="padding:12px 18px"><button class="btn bp bsm" style="width:100%;justify-content:center">Voir le tableau de bord →</button></div>';
+    card.querySelector('button').onclick=()=>openEquipeDetail(eq);
+    grid.appendChild(card);
+  });
+  c.appendChild(grid);
+}
+
+async function openEquipeDetail(eq){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  g('page-equipe-detail').classList.add('on');
+  g('eq-detail-title').textContent=eq.nom;
+  g('eq-detail-sub').textContent=(IC[eq.sport]||'')+ ' '+eq.joueurs.length+' joueurs · '+eq.seances.length+' séances';
+  const c=g('eq-detail-c');c.innerHTML='<div class="spin"></div>';
+
+  // Load presences for this team's players
+  const joueurIds=eq.joueurs.map(j=>String(j.id));
+  let presences=[];
+  if(joueurIds.length){
+    const{data:pr}=await sb.from('presences').select('*').eq('coach_id',U.id).in('joueur_id',joueurIds);
+    presences=pr||[];
+  }
+
+  // Stats
+  const totalPres=presences.length;
+  const presents=presences.filter(p=>p.present).length;
+  const tauxPres=totalPres?Math.round((presents/totalPres)*100):0;
+  const prochaine=eq.seances.filter(s=>s.date>=td()).sort((a,b)=>a.date>b.date?1:-1)[0];
+  const col=eq.sport==='football'?'--green':eq.sport==='boxe'?'--blue':'--muted';
+
+  c.innerHTML='';
+
+  // KPIs
+  const kpis=mk('div','g4');kpis.style.marginBottom='18px';
+  kpis.innerHTML='<div class="kpi g" style="cursor:default"><div class="kl">Joueurs</div><div class="kv" style="color:var(--green)">'+eq.joueurs.length+'</div></div>'
+    +'<div class="kpi r" style="cursor:default"><div class="kl">Séances</div><div class="kv" style="color:var(--red)">'+eq.seances.length+'</div></div>'
+    +'<div class="kpi b" style="cursor:default"><div class="kl">Présence moy.</div><div class="kv" style="color:var(--blue)">'+tauxPres+'%</div></div>'
+    +'<div class="kpi y" style="cursor:default"><div class="kl">Prochaine séance</div><div class="kv" style="color:var(--yellow);font-size:20px">'+(prochaine?fd(prochaine.date):'—')+'</div></div>';
+  c.appendChild(kpis);
+
+  // Grid: joueurs + séances
+  const grid=mk('div','g2b');
+
+  // Joueurs card
+  const jc=mk('div','card');
+  let jh='<div class="ch"><div class="cht">Effectif</div></div><div class="cb">';
+  if(!eq.joueurs.length)jh+='<div class="empty"><div class="ei">👥</div><div style="font-size:13px">Aucun joueur</div></div>';
+  else {
+    // Build joueurs list using DOM to avoid onclick string escaping issues
+    jc.innerHTML=jh+'</div>';
+    const jcb=jc.querySelector('.cb');
+    eq.joueurs.forEach(j=>{
+      const jPres=presences.filter(p=>String(p.joueur_id)===String(j.id));
+      const jPresents=jPres.filter(p=>p.present).length;
+      const jTaux=jPres.length?Math.round((jPresents/jPres.length)*100):null;
+      const row=mk('div','li');
+      row.innerHTML='<div class="pav" style="background:var('+col+'-bg);color:var('+col+')">'+ini(j.prenom,j.nom)+'</div>'
+        +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+j.prenom+' '+j.nom+'</div>'
+        +'<div style="font-size:11px;color:var(--muted)">'+(j.poste||'—')+'</div></div>'
+        +(jTaux!==null
+          ?'<div style="text-align:right"><div style="font-family:var(--font-d);font-size:16px;font-weight:800;color:var('+(jTaux>=75?'--green':jTaux>=50?'--yellow':'--red')+')">'+jTaux+'%</div><div style="font-size:10px;color:var(--muted)">presence</div></div>'
+          :'<span style="font-size:11px;color:var(--muted2)">—</span>');
+      row.onclick=()=>openProfil(j.id);
+      jcb.appendChild(row);
+    });
+    grid.appendChild(jc);}
+  grid.appendChild(jc);
+
+  // Séances card
+  const sc=mk('div','card');
+  let sh='<div class="ch"><div class="cht">Séances</div></div><div class="cb">';
+  const sortedSea=[...eq.seances].sort((a,b)=>b.date>a.date?1:-1);
+  if(!eq.seances.length)sh+='<div class="empty"><div class="ei">🎯</div><div style="font-size:13px">Aucune séance</div></div>';
+  else sortedSea.slice(0,8).forEach(s=>{
+    const isPast=s.date<td();
+    sh+='<div class="li">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+s.nom+'</div>'
+      +'<div style="font-size:11px;color:var(--muted)">'+fd(s.date)+' · '+(s.heure||'').slice(0,5)+' · '+(s.lieu||'—')+'</div></div>'
+      +'<span class="tag '+(isPast?'neutral':'green')+'">'+(isPast?'Passée':'À venir')+'</span>'
+      +'</div>';
+  });
+  sc.innerHTML=sh+'</div>';
+  grid.appendChild(sc);
+  c.appendChild(grid);
+
+  // Présence chart par joueur
+  if(eq.joueurs.length&&totalPres>0){
+    const presCard=mk('div','card');presCard.style.marginTop='0';
+    let pch='<div class="ch"><div class="cht">Présences par joueur</div></div><div class="cb">';
+    const sorted=[...eq.joueurs].map(j=>{
+      const jPres=presences.filter(p=>String(p.joueur_id)===String(j.id));
+      const jPresents=jPres.filter(p=>p.present).length;
+      const jTaux=jPres.length?Math.round((jPresents/jPres.length)*100):0;
+      return{j,taux:jTaux,total:jPres.length};
+    }).filter(x=>x.total>0).sort((a,b)=>b.taux-a.taux);
+    sorted.forEach(({j,taux,total})=>{
+      pch+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+        +'<div class="pav" style="background:var('+col+'-bg);color:var('+col+')">'+ini(j.prenom,j.nom)+'</div>'
+        +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;margin-bottom:4px">'+j.prenom+' '+j.nom+'<span style="font-size:11px;color:var(--muted);margin-left:6px">'+total+' séance'+(total>1?'s':'')+'</span></div>'
+        +'<div class="pb"><div class="pbf" style="width:'+taux+'%;background:var('+(taux>=75?'--green':taux>=50?'--yellow':'--red')+')"></div></div></div>'
+        +'<span style="font-family:var(--font-d);font-size:16px;font-weight:800;min-width:38px;text-align:right;color:var('+(taux>=75?'--green':taux>=50?'--yellow':'--red')+')">'+taux+'%</span>'
+        +'</div>';
+    });
+    presCard.innerHTML=pch+'</div>';
+    c.appendChild(presCard);
+  }
+}
+
 async function saveNote(){if(!curNJId){toast('Erreur joueur - rechargez la fiche',true);return;}const note=gv('ntx');if(!note){toast('Note vide ⚠️',true);return;}const nid=curNJId;const{error}=await sb.from('notes_joueur').insert({coach_id:U.id,joueur_id:String(nid),note});if(error){toast('Erreur : '+error.message,true);console.error(error);return;}cM('mno');toast('Note enregistrée 📝');g('ntx').value='';openProfil(nid);}
 async function saveProg(){const nom=gv('ppn');if(!nom){toast('Nom requis ⚠️',true);return;}const{error}=await sb.from('programmes').insert({coach_id:U.id,sport:gv('pps'),nom,duree:gv('ppd'),objectif:gv('ppo'),description:gv('ppde')});if(error){toast('Erreur : '+error.message,true);return;}cM('mp');toast('Programme créé 📋');g('ppn').value='';g('ppde').value='';rProg();}
 async function saveMsg(){const objet=gv('mmo');if(!objet){toast('Objet requis ⚠️',true);return;}const{error}=await sb.from('messages').insert({coach_id:U.id,dest:gv('mmd'),sport:gv('mms'),objet,corps:gv('mmb'),priorite:gv('mmp')});if(error){toast('Erreur : '+error.message,true);return;}cM('mm');toast('Message envoyé 💬');g('mmo').value='';g('mmb').value='';rComms();}
