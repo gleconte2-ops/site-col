@@ -291,7 +291,7 @@ async function doSignup(){const fn=gv('sfn'),ln=gv('sln'),em=gv('sem'),pw=gv('sp
 async function doLogout(){await sb.auth.signOut();toast('Déconnecté 👋');}
 async function loadProf(){if(!U)return;let fn=U.user_metadata?.prenom||'',ln=U.user_metadata?.nom||'';if(!fn){try{const{data}=await sb.from('profiles').select('*').eq('id',U.id).maybeSingle();if(data){fn=data.prenom||'';ln=data.nom||'';}}catch(e){}}if(!fn)fn=U.email.split('@')[0];g('un').textContent=fn+' '+ln;g('av').textContent=(fn[0]||'?')+(ln[0]||'').toUpperCase();}
 
-function nav(page,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));const p=g('page-'+page);if(p)p.classList.add('on');if(el)el.classList.add('active');({seances:rSea,joueurs:rJou,sante:rSan,calendrier:rCal,stats:rStat,programmes:rProg,comms:rComms,params:rParams,dashboard:loadDash,presences:rPres,compo:rCompo})[page]?.();if(window.innerWidth<=768) closeSidebar();}
+function nav(page,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));const p=g('page-'+page);if(p)p.classList.add('on');if(el)el.classList.add('active');({seances:rSea,joueurs:rJou,sante:rSan,calendrier:rCal,stats:rStat,programmes:rProg,comms:rComms,params:rParams,dashboard:loadDash,presences:rPres,compo:rCompo})[page]?.();if(window.innerWidth<=768)closeSidebar();}
 
 async function loadDash(){if(!U)return;let sea=[],jou=[],bl=[];try{const[sr,jr,br]=await Promise.all([sb.from('seances').select('*').eq('coach_id',U.id).order('date',{ascending:true}),sb.from('joueurs').select('*').eq('coach_id',U.id),sb.from('blessures').select('*').eq('coach_id',U.id).eq('status','active')]);sea=sr.data||[];jou=jr.data||[];bl=br.data||[];}catch(e){}
 let pm='—';try{const{data:pr}=await sb.from('presences').select('present').eq('coach_id',U.id);if(pr&&pr.length){pm=Math.round((pr.filter(p=>p.present).length/pr.length)*100)+'%';}}catch(e){}
@@ -316,7 +316,22 @@ const uS=()=>{stat.innerHTML='<div style="font-size:13px;color:var(--muted)">Pr�
 uS();det.appendChild(stat);
 jou.forEach(j=>{const isP=pm[j.id]?.present===true;const row=mk('div','pri');row.innerHTML='<label class="tgl"><input type="checkbox" '+(isP?'checked':'')+'><span class="tsl"></span></label><div class="pav" style="background:var('+(CO[j.sport]||'--green')+'-bg);color:var('+(CO[j.sport]||'--green')+')">'+ini(j.prenom,j.nom)+'</div><div style="flex:1"><div style="font-size:13px;font-weight:600">'+j.prenom+' '+j.nom+'</div><div style="font-size:11px;color:var(--muted)">'+(j.poste||'—')+'</div></div><span class="pl" style="font-size:12px;font-weight:600;color:'+(isP?'var(--green)':'var(--muted)')+'">'+(isP?'✓ Présent':'✗ Absent')+'</span>';
 const tog=row.querySelector('input'),lbl=row.querySelector('.pl');
-tog.onchange=async function(){const pres=this.checked;lbl.textContent=pres?'✓ Présent':'✗ Absent';lbl.style.color=pres?'var(--green)':'var(--muted)';try{if(pm[j.id]){await sb.from('presences').update({present:pres}).eq('id',pm[j.id].id);pm[j.id].present=pres;}else{const{data:np}=await sb.from('presences').insert({coach_id:U.id,seance_id:s.id,joueur_id:j.id,present:pres}).select().single();if(np)pm[j.id]=np;}uS();}catch(e){toast('Erreur',true);}};det.appendChild(row);});}
+tog.onchange=async function(){
+  const pres=this.checked;
+  lbl.textContent=pres?'✓ Présent':'✗ Absent';
+  lbl.style.color=pres?'var(--green)':'var(--muted)';
+  if(pm[j.id]){
+    const{error:ue}=await sb.from('presences').update({present:pres}).eq('id',pm[j.id].id).eq('coach_id',U.id);
+    if(ue){toast('Erreur maj: '+ue.message,true);console.error(ue);return;}
+    pm[j.id].present=pres;
+  }else{
+    const row2={coach_id:U.id,seance_id:Number(s.id),joueur_id:Number(j.id),present:pres};
+    const{data:np,error:ie}=await sb.from('presences').insert(row2).select().single();
+    if(ie){toast('Erreur insert: '+ie.message,true);console.error(ie);return;}
+    if(np)pm[j.id]=np;
+  }
+  uS();
+};det.appendChild(row);});}
 
 async function rJou(sport,search=''){if(!U)return;if(sport!==undefined)jSF=sport;let{data:all}=await sb.from('joueurs').select('*').eq('coach_id',U.id);all=all||[];let list=all.filter(j=>{if(jSF!=='all'&&j.sport!==jSF)return false;if(search&&!`${j.prenom} ${j.nom} ${j.poste||''}`.toLowerCase().includes(search.toLowerCase()))return false;return true;});g('jsub').textContent=list.length+' athlète'+(list.length>1?'s':'');const c=g('jl');c.innerHTML='';if(!list.length){c.innerHTML='<div class="empty"><div class="ei">👥</div><div style="font-size:13px">Aucun athlète</div></div>';return;}list.forEach(j=>{const row=mk('div','li');row.innerHTML='<div class="pav" style="background:var('+(CO[j.sport]||'--green')+'-bg);color:var('+(CO[j.sport]||'--green')+')">'+ini(j.prenom,j.nom)+'</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">'+j.prenom+' '+j.nom+'</span><span class="tag '+j.sport+'">'+(j.sport||'').toUpperCase()+'</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+(j.poste||'—')+' · '+(j.equipe||'—')+' · '+(j.age||'?')+' ans</div></div><div style="display:flex;align-items:center;gap:8px"><button class="btn bb bsm">Fiche →</button><button class="btn bd bsm">✕</button></div>';row.querySelectorAll('button')[0].onclick=e=>{e.stopPropagation();openProfil(j.id);};row.querySelectorAll('button')[1].onclick=e=>{e.stopPropagation();delI('joueurs',j.id,rJou);};c.appendChild(row);});}
 function tabJ(el,s){document.querySelectorAll('#page-joueurs .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rJou(s);}
