@@ -340,7 +340,11 @@ async function rJou(sport,search=''){if(!U)return;if(sport!==undefined)jSF=sport
 function tabJ(el,s){document.querySelectorAll('#page-joueurs .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rJou(s);}
 function searchJ(v){rJou(jSF,v);}
 
-async function openProfil(id){curJId=id;document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));g('page-profil').classList.add('on');const c=g('pc');c.innerHTML='<div class="spin"></div>';let j={},pres=[],bl=[],notes=[];try{const[jr,pr,br,nr]=await Promise.all([sb.from('joueurs').select('*').eq('id',id).single(),sb.from('presences').select('*,seances(nom,date)').eq('joueur_id',String(id)).eq('coach_id',U.id),sb.from('blessures').select('*').eq('coach_id',U.id),sb.from('notes_joueur').select('*').eq('joueur_id',String(id)).eq('coach_id',U.id).order('created_at',{ascending:false})]);j=jr.data||{};pres=pr.data||[];notes=nr.data||[];bl=(br.data||[]).filter(b=>b.nom_joueur===j.prenom+' '+j.nom);}catch(e){}
+async function openProfil(id){curJId=id;document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));g('page-profil').classList.add('on');const c=g('pc');c.innerHTML='<div class="spin"></div>';let j={},pres=[],bl=[],notes=[];try{const[jr,pr,br,nr]=await Promise.all([sb.from('joueurs').select('*').eq('id',id).single(),sb.from('presences').select('*').eq('joueur_id',String(id)).eq('coach_id',U.id),sb.from('blessures').select('*').eq('coach_id',U.id),sb.from('notes_joueur').select('*').eq('joueur_id',String(id)).eq('coach_id',U.id).order('created_at',{ascending:false})]);j=jr.data||{};notes=nr.data||[];bl=(br.data||[]).filter(b=>b.nom_joueur===j.prenom+' '+j.nom);
+// Fetch seance details for each presence
+const presRaw=pr.data||[];
+if(presRaw.length){const seanceIds=[...new Set(presRaw.map(p=>p.seance_id))];const{data:seas}=await sb.from('seances').select('id,nom,date').in('id',seanceIds);const seaMap={};(seas||[]).forEach(s=>seaMap[s.id]=s);pres=presRaw.map(p=>({...p,seances:seaMap[p.seance_id]||{}}));}
+}catch(e){console.error(e);}
 g('pnom').textContent=j.prenom+' '+j.nom;
 const tot=pres.length,prs=pres.filter(p=>p.present).length,tx=tot?Math.round((prs/tot)*100):0;
 c.innerHTML='';
